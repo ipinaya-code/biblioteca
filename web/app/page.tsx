@@ -1,52 +1,45 @@
 "use client";
 import { useState } from "react";
-import { api } from "../model/api";
+import { api, canManage, errorMessage } from "../model/api";
 import { useLibrary } from "../controllers/use-library";
-import { Materials } from "../view/materials";
-import { Users } from "../view/users";
+import { useTheme } from "../controllers/use-theme";
+import { ErrorAlert, Loading } from "../view/feedback";
 import { Loans } from "../view/loans";
+import { Materials } from "../view/materials";
+import { Overview } from "../view/overview";
 import { Reports } from "../view/reports";
-import { ThemeSelector } from "../view/ThemeSelector";
-import { ThemeProvider } from "../context/ThemeContext";
+import { Shell } from "../view/shell";
+import { ThemeSelector } from "../view/theme-selector";
+import { Users } from "../view/users";
 
-function DashboardContent() {
+export default function Dashboard() {
   const data = useLibrary();
+  const { theme, update } = useTheme();
   const [section, setSection] = useState("overview");
   const [error, setError] = useState("");
-  const [showThemeSelector, setShowThemeSelector] = useState(false);
+  const [showTheme, setShowTheme] = useState(false);
   const { user, materials, loans, users, summary, load } = data;
-  if (!user) return <main className="login"><div className="login-card">
-    {data.error ? <><p role="alert">{data.error}</p><button onClick={load}>Reintentar</button></> : "Cargando biblioteca…"}
+  if (!user) return <main className="grid min-h-dvh place-items-center p-4"><div className="w-full max-w-sm">
+    {data.error ? <ErrorAlert message={data.error} onRetry={load} /> : <Loading label="Cargando biblioteca…" />}
   </div></main>;
-  const manage = ["administrador", "bibliotecario"].includes(user.role);
+  const manage = canManage(user);
   const labels: Record<string, string> = { overview: "Resumen", materials: "Catálogo", loans: "Préstamos",
     ...(manage ? { users: "Personas y roles", reports: "Reportes" } : {}) };
   async function logout() {
     try { await api("/auth/logout", { method: "POST" }); window.location.assign("/login"); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Error"); }
+    catch (reason) { setError(errorMessage(reason)); }
   }
   const stats = manage ? summary : { materiales: materials.length, prestamos_activos: loans.filter(x => !x.returnedAt).length };
-  return <div className="shell"><aside className="sidebar"><div className="brand">Biblioteca<small>Conocimiento a tu alcance</small></div>
-    <nav className="nav" aria-label="Navegación principal">{Object.entries(labels).map(([id, label]) =>
-      <button key={id} aria-current={section === id ? "page" : undefined} className={section === id ? "active" : ""}
-        onClick={() => setSection(id)}>{label}</button>)}</nav>
-    <button className="theme-toggle" onClick={() => setShowThemeSelector(!showThemeSelector)}>🎨 Tema</button>
-    <div className="identity">{user.name}<small>{user.role}</small></div><button className="logout" onClick={logout}>Cerrar sesión</button></aside>
-    <main className="main"><span className="eyebrow">Tu biblioteca virtual</span><h1 className="heading">{labels[section]}</h1>
-      {(error || data.error) && <p role="alert" className="error">{error || data.error}</p>}
-      {showThemeSelector && <ThemeSelector />}
-      {section === "overview" && <><div className="hero"><span>Un lugar para descubrir</span><h2>Tu próxima lectura<br />empieza aquí.</h2>
-        <p>Explora el catálogo y consulta tus préstamos.</p><button className="primary" onClick={() => setSection("materials")}>Explorar catálogo →</button></div>
-        <div className="stats">{Object.entries(stats).map(([label, value]) => <div className="stat" key={label}>
-          <b>{value}</b><span>{label.replaceAll("_", " ")}</span></div>)}</div></>}
-      {section === "materials" && <Materials items={materials} manage={manage} reload={load} />}
-      {section === "loans" && <Loans items={loans} materials={materials} users={users} manage={manage} reload={load} />}
-      {section === "users" && manage && <Users items={users} admin={user.role === "administrador"} self={user.id} reload={load} />}
-      {section === "reports" && manage && <Reports />}
-    </main></div>;
-}
-
-export default function Dashboard() {
-  const data = useLibrary();
-  return <ThemeProvider user={data.user}><DashboardContent /></ThemeProvider>;
+  return <Shell user={user} labels={labels} section={section} onSelect={setSection}
+    onTheme={() => setShowTheme(!showTheme)} onLogout={logout}>
+    <span className="text-xs font-semibold uppercase tracking-widest text-accent">Tu biblioteca virtual</span>
+    <h1 className="mb-6 mt-1 text-3xl font-semibold sm:text-4xl">{labels[section]}</h1>
+    <ErrorAlert message={error || data.error} />
+    {showTheme && <ThemeSelector theme={theme} update={update} close={() => setShowTheme(false)} />}
+    {section === "overview" && <Overview stats={stats} onExplore={() => setSection("materials")} />}
+    {section === "materials" && <Materials items={materials} manage={manage} reload={load} />}
+    {section === "loans" && <Loans items={loans} materials={materials} users={users} manage={manage} reload={load} />}
+    {section === "users" && manage && <Users items={users} admin={user.role === "administrador"} self={user.id} reload={load} />}
+    {section === "reports" && manage && <Reports />}
+  </Shell>;
 }

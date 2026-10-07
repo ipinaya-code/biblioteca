@@ -44,7 +44,7 @@ test("login, CRUD, préstamo, devolución y reportes de administrador", async ({
   await page.getByRole("button", { name: "Guardar", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Registrar préstamo" })).toHaveCount(0);
   await page.getByRole("button", { name: "Devolver", exact: true }).last().click();
-  await expect(page.locator("td .pill").filter({ hasText: /^Devuelto$/ }).first()).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Devuelto", exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: "Reportes", exact: true }).click();
   for (const report of ["inventory", "users", "loans", "overdue"]) {
     await page.getByRole("combobox", { name: "Reporte", exact: true }).selectOption(report);
@@ -74,6 +74,7 @@ test("error de login y navegación móvil", async ({ page }) => {
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "Credenciales inválidas" })).toHaveText("Credenciales inválidas");
   await login(page, "lector01@test.local");
+  await page.getByRole("button", { name: "Abrir menú" }).click();
   await page.getByRole("button", { name: "Préstamos", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Mis préstamos", exact: true })).toBeVisible();
 });

@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { ThemeWrapper } from "../components/ThemeWrapper";
 
-export const metadata: Metadata = { title: "Biblioteca", description: "Gestion de biblioteca" };
+export const metadata: Metadata = { title: "Biblioteca", description: "Gestión de biblioteca" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="es"><body><ThemeWrapper>{children}</ThemeWrapper></body></html>;
+  return <html lang="es" suppressHydrationWarning><body className="antialiased">{children}</body></html>;
 }

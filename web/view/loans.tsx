@@ -1,7 +1,16 @@
 "use client";
+import { Button, Chip } from "@heroui/react";
 import { useState } from "react";
-import { api, Loan, Material, User } from "../model/api";
+import { api, errorMessage, Loan, Material, User } from "../model/api";
+import { Column, DataTable } from "./data-table";
+import { ErrorAlert, Panel } from "./feedback";
+import { SelectField } from "./fields";
 import { Editor } from "./form";
+
+const STATES = ["todos", "Activo", "Vencido", "Devuelto"];
+const COLORS = { Activo: "accent", Vencido: "danger", Devuelto: "success" } as const;
+const status = (x: Loan) => x.returnedAt ? "Devuelto" : new Date(x.dueAt) < new Date() ? "Vencido" : "Activo";
+
 export function Loans({ items, materials, users, manage, reload }: {
   items: Loan[]; materials: Material[]; users: User[]; manage: boolean; reload: () => void;
 }) {
@@ -9,18 +18,26 @@ export function Loans({ items, materials, users, manage, reload }: {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState("todos");
-  const status = (x: Loan) => x.returnedAt ? "Devuelto" : new Date(x.dueAt) < new Date() ? "Vencido" : "Activo";
   async function returnLoan(id: number) {
     setBusy(true); setError("");
     try { await api(`/loans/${id}/return`, { method: "POST" }); reload(); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Error"); }
+    catch (reason) { setError(errorMessage(reason)); }
     finally { setBusy(false); }
   }
   const filtered = items.filter(x => filter === "todos" || status(x) === filter);
-  return <section className="panel"><div className="toolbar"><h2>{manage ? "Préstamos" : "Mis préstamos"}</h2>
-    {manage && <button className="primary" onClick={() => setCreating(true)}>Nuevo préstamo</button>}</div>
-    <label className="field">Estado<select value={filter} onChange={e => setFilter(e.target.value)}>
-      {["todos", "Activo", "Vencido", "Devuelto"].map(x => <option key={x}>{x}</option>)}</select></label>
+  const columns: Column<Loan>[] = [
+    { label: "Material", render: x => <span className="font-medium">{x.material.title}</span> },
+    { label: "Persona", render: x => x.user.name },
+    { label: "Vence", render: x => new Date(x.dueAt).toLocaleDateString("es-BO") },
+    { label: "Estado", render: x => <Chip size="sm" variant="soft" color={COLORS[status(x)]}>{status(x)}</Chip> },
+  ];
+  if (manage) columns.push({ label: "Acciones", render: x => !x.returnedAt &&
+    <Button size="sm" variant="secondary" isDisabled={busy} onPress={() => returnLoan(x.id)}>Devolver</Button> });
+  return <Panel title={manage ? "Préstamos" : "Mis préstamos"}
+    action={manage && <Button onPress={() => setCreating(true)}>Nuevo préstamo</Button>}>
+    <div className="mb-4 sm:max-w-xs">
+      <SelectField label="Estado" value={filter} onChange={setFilter} options={STATES.map(x => ({ value: x, label: x }))} />
+    </div>
     {creating && <Editor title="Registrar préstamo" path="/loans" method="POST" cancel={() => setCreating(false)}
       done={() => { setCreating(false); reload(); }} fields={[
         { name: "materialId", label: "Material disponible", options: materials.filter(x => x.availableCopies > 0)
@@ -28,11 +45,7 @@ export function Loans({ items, materials, users, manage, reload }: {
         { name: "personId", label: "Persona", options: users.filter(x => x.active).map(x => ({ value: x.id, label: `${x.name} · ${x.email}` })) },
         { name: "days", label: "Días", type: "number", value: 14, min: 1 },
       ]} />}
-    {error && <p role="alert" className="error">{error}</p>}
-    <table className="table"><thead><tr><th>Material</th><th>Persona</th><th>Vence</th><th>Estado</th>{manage && <th>Acciones</th>}</tr></thead>
-      <tbody>{filtered.map(x => <tr key={x.id}><td>{x.material.title}</td><td>{x.user.name}</td>
-        <td>{new Date(x.dueAt).toLocaleDateString("es-BO")}</td><td><span className="pill">{status(x)}</span></td>
-        {manage && <td>{!x.returnedAt && <button disabled={busy} onClick={() => returnLoan(x.id)}>Devolver</button>}</td>}</tr>)}</tbody></table>
-    {!filtered.length && <p>No hay préstamos en este estado.</p>}
-  </section>;
+    <ErrorAlert message={error} />
+    <DataTable columns={columns} rows={filtered} rowKey={x => x.id} empty="No hay préstamos en este estado." />
+  </Panel>;
 }
