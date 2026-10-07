@@ -1,0 +1,35 @@
+# Entornos virtuales
+venv/
+env/
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Node / Next.js (para cuando agregues el frontend)
+node_modules/
+.next/
+
+# Build metadata
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+instance/
+*.tsbuildinfo
+.coverage
+htmlcov/
+web/test-results/
+web/playwright-report/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Variables de entorno
+.env
+
+# Python
+__pycache__/
+*.pyc
