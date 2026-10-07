@@ -1,24 +1,33 @@
 "use client";
+import { Button, Chip } from "@heroui/react";
 import { useState } from "react";
-import { User } from "../model/api";
+import type { User } from "../model/api";
+import { Column, DataTable } from "./data-table";
+import { Panel } from "./feedback";
+import { SearchField } from "./fields";
 import { DeleteButton, Editor } from "./form";
 import { userFields } from "./user-fields";
+
 export function Users({ items, admin, self, reload }: { items: User[]; admin: boolean; self: number; reload: () => void }) {
   const [editing, setEditing] = useState<User | "new" | null>(null);
   const [query, setQuery] = useState("");
   const existing = editing && editing !== "new" ? editing : null;
-  const fields = userFields(existing);
   const filtered = items.filter(x => `${x.name} ${x.email} ${x.role}`.toLowerCase().includes(query.toLowerCase()));
-  return <section className="panel"><div className="toolbar"><h2>Personas y roles</h2>
-    {admin && <button className="primary" onClick={() => setEditing("new")}>Nuevo usuario</button>}</div>
-    <label className="field">Buscar persona<input value={query} onChange={e => setQuery(e.target.value)} /></label>
+  const columns: Column<User>[] = [
+    { label: "Nombre", render: x => <span className="font-medium">{x.name}</span> },
+    { label: "Correo", render: x => <span className="break-all">{x.email}</span> },
+    { label: "Rol", render: x => <Chip size="sm" variant="soft">{x.role}</Chip> },
+    { label: "Estado", render: x => <Chip size="sm" variant="soft" color={x.active ? "success" : "default"}>
+      {x.active ? "Activo" : "Inactivo"}</Chip> },
+  ];
+  if (admin) columns.push({ label: "Acciones", render: x => <div className="flex flex-wrap justify-end gap-2 md:justify-start">
+    <Button size="sm" variant="secondary" onPress={() => setEditing(x)}>Editar</Button>
+    {x.id !== self && <DeleteButton path={`/users/${x.id}`} done={reload} />}</div> });
+  return <Panel title="Personas y roles" action={admin && <Button onPress={() => setEditing("new")}>Nuevo usuario</Button>}>
+    <SearchField label="Buscar persona" value={query} onChange={setQuery} />
     {editing && <Editor key={existing?.id ?? "new"} title={existing ? "Editar usuario" : "Nuevo usuario"}
-      path={`/users${existing ? `/${existing.id}` : ""}`} method={existing ? "PATCH" : "POST"} fields={fields}
+      path={`/users${existing ? `/${existing.id}` : ""}`} method={existing ? "PATCH" : "POST"} fields={userFields(existing)}
       done={() => { setEditing(null); reload(); }} cancel={() => setEditing(null)} />}
-    <table className="table"><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th>{admin && <th>Acciones</th>}</tr></thead>
-      <tbody>{filtered.map(x => <tr key={x.id}><td>{x.name}</td><td>{x.email}</td><td><span className="pill">{x.role}</span></td>
-        <td>{x.active ? "Activo" : "Inactivo"}</td>{admin && <td className="actions"><button onClick={() => setEditing(x)}>Editar</button>
-          {x.id !== self && <DeleteButton path={`/users/${x.id}`} done={reload} />}</td>}</tr>)}</tbody></table>
-    {!filtered.length && <p>No hay personas para esta búsqueda.</p>}
-  </section>;
+    <DataTable columns={columns} rows={filtered} rowKey={x => x.id} empty="No hay personas para esta búsqueda." />
+  </Panel>;
 }
